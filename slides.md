@@ -13,6 +13,11 @@ Everything in this presentation was run on:
 - Fedora 20
 - RDO Icehouse packages
 
+To try this out on your own you will need the above and:
+
+- A functioning Heat installation
+- A functioning Ceilometer installation
+
 ---
 
 # What is [Heat][]?
