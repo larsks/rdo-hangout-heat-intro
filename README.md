@@ -8,7 +8,7 @@ Hangout:
 
 You can view the slides online here:
 
-- http://oddbit.com/rdo-hangout-heat-intro/slides/#/
+- http://oddbit.com/rdo-hangout-heat-intro/#/
 
 In order to use the templates included in this repository you will
 need to edit the file `templates/local.yaml` and configure it with
