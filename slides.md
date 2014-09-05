@@ -1062,6 +1062,8 @@ A Pool resource manages a Neutron load-balancing pool.
         vip:
           protocol_port: 80
 
+---
+
 ## New concept: HealthMonitor
 
 A HealthMonitor monitors the connectivity of pool members.  Neutron
