@@ -1,7 +1,7 @@
-# RDO Hangout: Introduction to Heat
+# RDO Hangout: Deploying with Heat
 
 This is a set of slides (in the `slides` directory) and templates (in
-the `templates` directory) used in the "Introduction to Heat" RDO
+the `templates` directory) used in the "Deploying with Heat" RDO
 Hangout:
 
 - <https://plus.google.com/events/c9u4sjn7ksb8jrmma7vd25aok94>
