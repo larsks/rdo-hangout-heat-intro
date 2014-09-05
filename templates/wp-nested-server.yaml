@@ -152,14 +152,3 @@ resources:
       port_id:
         get_resource: wordpress_server_eth0
 
-outputs:
-  website_url:
-    value:
-      str_replace:
-        template: "http://$HOST/wordpress"
-        params:
-          "$HOST":
-            get_attr:
-              - wordpress_server_floating
-              - floating_ip_address
-
