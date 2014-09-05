@@ -1,0 +1,4 @@
+[submodule "slides"]
+	path = slides
+	url = git@github.com:larsks/rdo-hangout-heat-intro.git
+	branch = gh-pages

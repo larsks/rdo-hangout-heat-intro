@@ -1,0 +1,37 @@
+heat_template_version: 2013-05-23
+description: >
+  This template deploys a single server.
+
+  This template is from the "Introduction to Heat" RDO hangout:
+
+  https://plus.google.com/events/c9u4sjn7ksb8jrmma7vd25aok94
+
+parameters:
+
+  image:
+    type: string
+    default: cirros
+
+  key_name:
+    type: string
+    default: lars
+
+  network_id:
+    type: string
+    default: 18fc1b31-9b2c-4b6e-8dea-7e04bfd1eb43
+
+resources:
+
+  my_server:
+    type: "OS::Nova::Server"
+    properties:
+      image: {get_param: image}
+      flavor: m1.small
+      key_name: {get_param: key_name}
+      networks:
+        - network: {get_param: network_id}
+
+outputs:
+  server_ip:
+    description: fixed ip assigned to the server
+    value: { get_attr: [my_server, first_address] }

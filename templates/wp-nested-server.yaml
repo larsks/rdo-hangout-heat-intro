@@ -1,0 +1,165 @@
+heat_template_version: 2013-05-23
+description: >
+  This template defines a single Wordpress server resource.  It is meant to be 
+  included as a nested stack in a parent template.
+
+  This is "example 3" from the RDO "Introduction to Heat" hangout.
+  The hangout is available online at:
+
+  https://plus.google.com/events/c9u4sjn7ksb8jrmma7vd25aok94
+
+parameters:
+
+  server_image:
+    type: string
+    description: glance image used to boot the server
+
+  server_flavor:
+    type: string
+    description: flavor to use when booting the server
+
+  external_network_id:
+    type: string
+    description: uuid of a network to use for floating ip addresses
+
+  mysql_root_password:
+    type: string
+    description: root password for mysql instance
+
+  dns_nameserver:
+    type: string
+    description: address of a dns nameserver reachable in your environment
+
+  ssh_key_name:
+    type: string
+    description: name of ssh key to be provisioned on our server
+
+  db_name:
+    type: string
+    default: wordpress
+    description: this is the name of the database to be used for wordpress.
+
+  db_user:
+    type: string
+    default: wordpress
+    description: username for authenticating to the database.
+
+  # the following parameters are all things that are generated in the
+  # parent stack.
+  db_password:
+    type: string
+  db_host:
+    type: string
+  fixed_network_id:
+    type: string
+  fixed_subnet_id:
+    type: string
+  external_network_id:
+    type: string
+  security_groups:
+    type: comma_delimited_list
+  metadata:
+    type: json
+
+resources:
+  wp_auth_key:
+    type: OS::Heat::RandomString
+
+  wordpress_wait_handle:
+    type: "AWS::CloudFormation::WaitConditionHandle"
+
+  wordpress_wait_condition:
+    type: "AWS::CloudFormation::WaitCondition"
+    depends_on:
+      - wordpress_server
+    properties:
+      Handle:
+        get_resource: wordpress_wait_handle
+      Timeout: "6000"
+
+  wordpress_server:
+    type: "OS::Nova::Server"
+    properties:
+      image:
+        get_param: server_image
+      flavor:
+        get_param: server_flavor
+      key_name:
+        get_param: ssh_key_name
+      metadata:
+        get_param: metadata
+      user_data_format: RAW
+      user_data:
+        str_replace:
+          template: |
+            #!/bin/sh
+
+            yum -y upgrade
+            yum -y install httpd wordpress
+
+            HTTPDCONF=/etc/httpd/conf.d/wordpress.conf
+            sed -i '/Require local/ s/local/all granted/' $HTTPDCONF
+
+            WPCONF=/etc/wordpress/wp-config.php
+            sed -i '/DB_HOST/ s/localhost/$DB_HOST/' $WPCONF
+            sed -i '/DB_NAME/ s/database_name_here/$DB_NAME/' $WPCONF
+            sed -i '/DB_USER/ s/username_here/$DB_USER/' $WPCONF
+            sed -i '/DB_PASSWORD/ s/password_here/$DB_PASSWORD/' $WPCONF
+            sed -i 's/put your unique phrase here/$WP_AUTH_KEY/' $WPCONF
+
+            setsebool -P httpd_can_network_connect_db=true
+
+            systemctl enable httpd
+            systemctl start httpd
+            #
+            # Signal heat that we are finished settings things up.
+            cfn-signal -e0 --data 'OK' -r 'Setup complete' '$WAIT_HANDLE'
+          params:
+            "$WAIT_HANDLE":
+              get_resource: wordpress_wait_handle
+            "$DB_HOST":
+              get_param: db_host
+            "$DB_NAME":
+              get_param: db_name
+            "$DB_USER":
+              get_param: db_user
+            "$DB_PASSWORD":
+              get_param: db_password
+            "$WP_AUTH_KEY":
+              get_attr:
+                - wp_auth_key
+                - value
+      networks:
+        - port:
+            get_resource: wordpress_server_eth0
+
+  wordpress_server_eth0:
+    type: "OS::Neutron::Port"
+    properties:
+      network_id:
+        get_param: fixed_network_id
+      fixed_ips:
+        - subnet_id:
+            get_param: fixed_subnet_id
+      security_groups:
+        get_param: security_groups
+
+  wordpress_server_floating:
+    type: "OS::Neutron::FloatingIP"
+    properties:
+      floating_network_id:
+        get_param: external_network_id
+      port_id:
+        get_resource: wordpress_server_eth0
+
+outputs:
+  website_url:
+    value:
+      str_replace:
+        template: "http://$HOST/wordpress"
+        params:
+          "$HOST":
+            get_attr:
+              - wordpress_server_floating
+              - floating_ip_address
+

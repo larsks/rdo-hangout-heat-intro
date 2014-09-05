@@ -1,0 +1,345 @@
+heat_template_version: 2013-05-23
+description: >
+  This template deploys a MySQL database server and an autoscaling
+  group of Wordpress servers.  It *does not* deploy any load
+  balancers, so it is not practically useful without some additional
+  work.
+  
+  This is "example 3" from the RDO "Introduction to Heat"
+  hangout.  The hangout is available online at:
+
+  https://plus.google.com/events/c9u4sjn7ksb8jrmma7vd25aok94
+
+parameters:
+
+  server_image:
+    type: string
+    default: fedora-20-x86_64-updated
+    description: glance image used to boot the server
+
+  server_flavor:
+    type: string
+    default: m1.small
+    description: flavor to use when booting the server
+
+  external_network_id:
+    type: string
+    description: uuid of a network to use for floating ip addresses
+
+  mysql_root_password:
+    type: string
+    description: root password for mysql instance
+    default: secret
+
+  dns_nameserver:
+    type: string
+    description: address of a dns nameserver reachable in your environment
+    default: 8.8.8.8
+
+  ssh_key_name:
+    type: string
+    description: name of ssh key to be provisioned on our server
+    default: lars
+
+  db_name:
+    type: string
+    default: wordpress
+    description: this is the name of the database to be used for wordpress.
+
+  db_user:
+    type: string
+    default: wordpress
+    description: username for authenticating to the database.
+
+resources:
+
+  db_password:
+    type: OS::Heat::RandomString
+
+  ######################################################################
+  #
+  # network resources.  allocate a network and router for our server.
+  # it would also be possible to take advantage of existing network
+  # resources (and have the deployer provide network and subnet ids,
+  # etc, as parameters), but I wanted to minmize the amount of
+  # configuration necessary to make this go.
+  fixed_network:
+    type: "OS::Neutron::Net"
+
+  # This is the subnet on which we will deploy our server.
+  fixed_subnet:
+    type: "OS::Neutron::Subnet"
+    properties:
+      cidr: 10.0.0.0/24
+      network_id:
+        get_resource: fixed_network
+      dns_nameservers:
+        - get_param: dns_nameserver
+
+  # create a router attached to the external network provided as a
+  # parameter to this stack.
+  extrouter:
+    type: "OS::Neutron::Router"
+    properties:
+      external_gateway_info:
+        network:
+          get_param: external_network_id
+
+  # attached fixed_subnet to our extrouter router.
+  extrouter_inside:
+    type: "OS::Neutron::RouterInterface"
+    properties:
+      router_id:
+        get_resource: extrouter
+      subnet_id:
+        get_resource:
+          fixed_subnet
+
+  ######################################################################
+  #
+  # security groups.  we need to permit network traffic of various
+  # sorts.
+  #
+
+  # this permits ssh and icmp traffic
+  secgroup_common:
+    type: "OS::Neutron::SecurityGroup"
+    properties:
+      rules:
+        - protocol: icmp
+        - port_range_min: 22
+          port_range_max: 22
+          protocol: tcp
+
+  # this permits mysql traffic
+  secgroup_db:
+    type: "OS::Neutron::SecurityGroup"
+    properties:
+      rules:
+        - port_range_min: 3306
+          port_range_max: 3306
+          protocol: tcp
+
+  # this permits http/https traffic
+  secgroup_webserver:
+    type: "OS::Neutron::SecurityGroup"
+    properties:
+      rules:
+        - port_range_min: 80
+          port_range_max: 80
+          protocol: tcp
+        - port_range_min: 443
+          port_range_max: 443
+          protocol: tcp
+        - port_range_min: 8080
+          port_range_max: 8080
+          protocol: tcp
+
+  ######################################################################
+  #
+  # Create a wait condition.  We will use this to synchronize the
+  # creation of the Wordpress server with the database server (to
+  # ensure that we don't attempt to access the database before it
+  # is actually up and running).
+  #
+  mysql_wait_handle:
+    type: "AWS::CloudFormation::WaitConditionHandle"
+
+  mysql_wait_condition:
+    type: "AWS::CloudFormation::WaitCondition"
+    depends_on:
+      - mysql_server
+    properties:
+      Handle:
+        get_resource: mysql_wait_handle
+      Timeout: "6000"
+
+  mysql_server:
+    type: "OS::Nova::Server"
+    properties:
+      image:
+        get_param: server_image
+      flavor:
+        get_param: server_flavor
+      key_name:
+        get_param: ssh_key_name
+      user_data_format: RAW
+      user_data:
+        str_replace:
+          template: |
+            #!/bin/sh
+
+            yum -y upgrade
+            yum -y install mariadb-server
+
+            systemctl enable mariadb
+            systemctl start mariadb
+
+            cat > /root/init_db.sql <<END_SQL
+            DELETE FROM mysql.user;
+            CREATE USER 'root'@'%' IDENTIFIED BY '$MYSQL_ROOT_PASSWORD';
+            GRANT ALL PRIVILEGES ON *.* TO 'root'@'%' WITH GRANT OPTION;
+            DROP DATABASE IF EXISTS test;
+
+            CREATE DATABASE $DB_NAME;
+            GRANT ALL PRIVILEGES ON $DB_NAME.* TO '$DB_USER'@'%'
+              IDENTIFIED BY '$DB_PASSWORD';
+            FLUSH PRIVILEGES;
+            EXIT
+            END_SQL
+
+            mysql -uroot \
+              --connect-timeout 30 < /root/init_db.sql
+
+            # Signal heat that we are finished settings things up.
+            cfn-signal -e0 --data 'OK' -r 'Setup complete' '$WAIT_HANDLE'
+          params:
+            "$WAIT_HANDLE":
+              get_resource: mysql_wait_handle
+            "$MYSQL_ROOT_PASSWORD":
+              get_param: mysql_root_password
+            "$DB_NAME":
+              get_param: db_name
+            "$DB_USER":
+              get_param: db_user
+            "$DB_PASSWORD":
+              get_attr:
+                - db_password
+                - value
+      networks:
+        - port:
+            get_resource: mysql_server_eth0
+
+  mysql_server_eth0:
+    type: "OS::Neutron::Port"
+    properties:
+      network_id:
+        get_resource: fixed_network
+      security_groups:
+        - get_resource: secgroup_common
+        - get_resource: secgroup_db
+      fixed_ips:
+        - subnet_id:
+            get_resource: fixed_subnet
+
+  mysql_server_floating:
+    type: "OS::Neutron::FloatingIP"
+    depends_on:
+      - extrouter_inside
+    properties:
+      floating_network_id:
+        get_param: external_network_id
+      port_id:
+        get_resource: mysql_server_eth0
+
+  ######################################################################
+  #
+  # wordpress autoscaling group.  this includes the wordpress server
+  # as a "nested" stack, and with the logic following this resource
+  # allows Heat to add or remove resources in response to various
+  # metrics.
+  wordpress_group:
+    type: "OS::Heat::AutoScalingGroup"
+    depends_on:
+      - mysql_wait_condition
+      - extrouter_inside
+    properties:
+      min_size: 1
+      max_size: 3
+      resource:
+        # Here is our nested stack.
+        type: wp-nested-server.yaml
+        properties:
+          server_image:
+            get_param: server_image
+          server_flavor:
+            get_param: server_flavor
+          ssh_key_name:
+            get_param: ssh_key_name
+          dns_nameserver:
+            get_param: dns_nameserver
+          external_network_id:
+            get_param: external_network_id
+          fixed_network_id:
+            get_resource: fixed_network
+          fixed_subnet_id:
+            get_resource: fixed_subnet
+          security_groups:
+            - get_resource: secgroup_common
+            - get_resource: secgroup_webserver
+          mysql_root_password:
+            get_param: mysql_root_password
+          db_name:
+            get_param: db_name
+          db_user:
+            get_param: db_user
+          db_password:
+            get_attr:
+              - db_password
+              - value
+          db_host:
+            get_attr:
+              - mysql_server_eth0
+              - fixed_ips
+              - 0
+              - ip_address
+
+          # This metadata is used for restricting a ceilometer query
+          # to servers launched by this stack.
+          metadata: {"metering.stack": {get_param: "OS::stack_id"}}
+
+  ######################################################################
+  #
+  # autoscale logic.  The following resources define a pair of
+  # Ceilometer alarms and associates them with a specific policy.
+  # This will configure a web hook into the ceilometer alarm so that
+  # when the alarm fires, Ceilometer will notify Heat and Heat will
+  # apply the corresponding ScalingPolicy.
+  #
+  web_server_scaleup_policy:
+    type: "OS::Heat::ScalingPolicy"
+    properties:
+      adjustment_type: change_in_capacity
+      auto_scaling_group_id:
+        get_resource: wordpress_group
+      cooldown: 60
+      scaling_adjustment: 1
+  web_server_scaledown_policy:
+    type: "OS::Heat::ScalingPolicy"
+    properties:
+      adjustment_type: change_in_capacity
+      auto_scaling_group_id:
+        get_resource: wordpress_group
+      cooldown: 60
+      scaling_adjustment: -1
+  cpu_alarm_high:
+    type: OS::Ceilometer::Alarm
+    properties:
+      description: Scale-up if the average CPU > 50% for 1 minute
+      meter_name: cpu_util
+      statistic: avg
+      period: 60
+      evaluation_periods: 1
+      threshold: 50
+      alarm_actions:
+        - get_attr:
+            - web_server_scaleup_policy
+            - alarm_url
+      matching_metadata:
+        'metadata.user_metadata.stack':
+          get_param: "OS::stack_id"
+      comparison_operator: gt
+  cpu_alarm_low:
+    type: OS::Ceilometer::Alarm
+    properties:
+      description: Scale-down if the average CPU < 15% for 10 minutes
+      meter_name: cpu_util
+      statistic: avg
+      period: 600
+      evaluation_periods: 1
+      threshold: 15
+      alarm_actions:
+        - {get_attr: [web_server_scaledown_policy, alarm_url]}
+      matching_metadata: {'metadata.user_metadata.stack': {get_param: "OS::stack_id"}}
+      comparison_operator: lt
+

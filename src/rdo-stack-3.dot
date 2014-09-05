@@ -1,0 +1,50 @@
+digraph heat_stack_rdo_stack_3 {
+rankdir=LR
+"40f36b87-2c4d-4b40-80fc-581f0dfb74f2:db_password" [label="db_password", style=filled, color="#B2FFEA"]
+"40f36b87-2c4d-4b40-80fc-581f0dfb74f2:extrouter" [label="extrouter", style=filled, color="#FFB2DC"]
+"40f36b87-2c4d-4b40-80fc-581f0dfb74f2:extrouter_inside" [label="extrouter_inside", style=filled, color="#CEFFB2"]
+"40f36b87-2c4d-4b40-80fc-581f0dfb74f2:fixed_network" [label="fixed_network", style=filled, color="#FFB2B2"]
+"40f36b87-2c4d-4b40-80fc-581f0dfb74f2:fixed_subnet" [label="fixed_subnet", style=filled, color="#FFDCB2"]
+"40f36b87-2c4d-4b40-80fc-581f0dfb74f2:mysql_server" [label="mysql_server", style=filled, color="#F8FFB2"]
+"40f36b87-2c4d-4b40-80fc-581f0dfb74f2:mysql_server_eth0" [label="mysql_server_eth0", style=filled, color="#B2FFC0"]
+"40f36b87-2c4d-4b40-80fc-581f0dfb74f2:mysql_server_floating" [label="mysql_server_floating", style=filled, color="#F8B2FF"]
+"40f36b87-2c4d-4b40-80fc-581f0dfb74f2:mysql_wait_condition" [label="mysql_wait_condition", style=filled, color="#B2EAFF"]
+"40f36b87-2c4d-4b40-80fc-581f0dfb74f2:mysql_wait_handle" [label="mysql_wait_handle", style=filled, color="#B2C0FF"]
+"40f36b87-2c4d-4b40-80fc-581f0dfb74f2:secgroup_common" [label="secgroup_common", style=filled, color="#CEB2FF"]
+"40f36b87-2c4d-4b40-80fc-581f0dfb74f2:secgroup_db" [label="secgroup_db", style=filled, color="#CEB2FF"]
+"40f36b87-2c4d-4b40-80fc-581f0dfb74f2:secgroup_webserver" [label="secgroup_webserver", style=filled, color="#CEB2FF"]
+"40f36b87-2c4d-4b40-80fc-581f0dfb74f2:wordpress_server" [label="wordpress_server", style=filled, color="#F8FFB2"]
+"40f36b87-2c4d-4b40-80fc-581f0dfb74f2:wordpress_server_eth0" [label="wordpress_server_eth0", style=filled, color="#B2FFC0"]
+"40f36b87-2c4d-4b40-80fc-581f0dfb74f2:wordpress_server_floating" [label="wordpress_server_floating", style=filled, color="#F8B2FF"]
+"40f36b87-2c4d-4b40-80fc-581f0dfb74f2:wordpress_wait_condition" [label="wordpress_wait_condition", style=filled, color="#B2EAFF"]
+"40f36b87-2c4d-4b40-80fc-581f0dfb74f2:wordpress_wait_handle" [label="wordpress_wait_handle", style=filled, color="#B2C0FF"]
+"40f36b87-2c4d-4b40-80fc-581f0dfb74f2:wp_auth_key" [label="wp_auth_key", style=filled, color="#B2FFEA"]
+"40f36b87-2c4d-4b40-80fc-581f0dfb74f2:extrouter_inside" -> "40f36b87-2c4d-4b40-80fc-581f0dfb74f2:mysql_server_floating"
+"40f36b87-2c4d-4b40-80fc-581f0dfb74f2:extrouter_inside" -> "40f36b87-2c4d-4b40-80fc-581f0dfb74f2:wordpress_server_floating"
+"40f36b87-2c4d-4b40-80fc-581f0dfb74f2:wordpress_server_eth0" -> "40f36b87-2c4d-4b40-80fc-581f0dfb74f2:wordpress_server"
+"40f36b87-2c4d-4b40-80fc-581f0dfb74f2:wordpress_server_eth0" -> "40f36b87-2c4d-4b40-80fc-581f0dfb74f2:wordpress_server_floating"
+"40f36b87-2c4d-4b40-80fc-581f0dfb74f2:wp_auth_key" -> "40f36b87-2c4d-4b40-80fc-581f0dfb74f2:wordpress_server"
+"40f36b87-2c4d-4b40-80fc-581f0dfb74f2:wordpress_server" -> "40f36b87-2c4d-4b40-80fc-581f0dfb74f2:wordpress_wait_condition"
+"40f36b87-2c4d-4b40-80fc-581f0dfb74f2:db_password" -> "40f36b87-2c4d-4b40-80fc-581f0dfb74f2:wordpress_server"
+"40f36b87-2c4d-4b40-80fc-581f0dfb74f2:db_password" -> "40f36b87-2c4d-4b40-80fc-581f0dfb74f2:mysql_server"
+"40f36b87-2c4d-4b40-80fc-581f0dfb74f2:extrouter" -> "40f36b87-2c4d-4b40-80fc-581f0dfb74f2:extrouter_inside"
+"40f36b87-2c4d-4b40-80fc-581f0dfb74f2:secgroup_webserver" -> "40f36b87-2c4d-4b40-80fc-581f0dfb74f2:wordpress_server_eth0"
+"40f36b87-2c4d-4b40-80fc-581f0dfb74f2:secgroup_db" -> "40f36b87-2c4d-4b40-80fc-581f0dfb74f2:mysql_server_eth0"
+"40f36b87-2c4d-4b40-80fc-581f0dfb74f2:fixed_network" -> "40f36b87-2c4d-4b40-80fc-581f0dfb74f2:wordpress_server_eth0"
+"40f36b87-2c4d-4b40-80fc-581f0dfb74f2:fixed_network" -> "40f36b87-2c4d-4b40-80fc-581f0dfb74f2:mysql_server_eth0"
+"40f36b87-2c4d-4b40-80fc-581f0dfb74f2:fixed_network" -> "40f36b87-2c4d-4b40-80fc-581f0dfb74f2:fixed_subnet"
+"40f36b87-2c4d-4b40-80fc-581f0dfb74f2:wordpress_wait_handle" -> "40f36b87-2c4d-4b40-80fc-581f0dfb74f2:wordpress_server"
+"40f36b87-2c4d-4b40-80fc-581f0dfb74f2:wordpress_wait_handle" -> "40f36b87-2c4d-4b40-80fc-581f0dfb74f2:wordpress_wait_condition"
+"40f36b87-2c4d-4b40-80fc-581f0dfb74f2:mysql_wait_handle" -> "40f36b87-2c4d-4b40-80fc-581f0dfb74f2:mysql_wait_condition"
+"40f36b87-2c4d-4b40-80fc-581f0dfb74f2:mysql_wait_handle" -> "40f36b87-2c4d-4b40-80fc-581f0dfb74f2:mysql_server"
+"40f36b87-2c4d-4b40-80fc-581f0dfb74f2:mysql_server" -> "40f36b87-2c4d-4b40-80fc-581f0dfb74f2:mysql_wait_condition"
+"40f36b87-2c4d-4b40-80fc-581f0dfb74f2:mysql_wait_condition" -> "40f36b87-2c4d-4b40-80fc-581f0dfb74f2:wordpress_server"
+"40f36b87-2c4d-4b40-80fc-581f0dfb74f2:mysql_server_eth0" -> "40f36b87-2c4d-4b40-80fc-581f0dfb74f2:wordpress_server"
+"40f36b87-2c4d-4b40-80fc-581f0dfb74f2:mysql_server_eth0" -> "40f36b87-2c4d-4b40-80fc-581f0dfb74f2:mysql_server"
+"40f36b87-2c4d-4b40-80fc-581f0dfb74f2:mysql_server_eth0" -> "40f36b87-2c4d-4b40-80fc-581f0dfb74f2:mysql_server_floating"
+"40f36b87-2c4d-4b40-80fc-581f0dfb74f2:fixed_subnet" -> "40f36b87-2c4d-4b40-80fc-581f0dfb74f2:wordpress_server_eth0"
+"40f36b87-2c4d-4b40-80fc-581f0dfb74f2:fixed_subnet" -> "40f36b87-2c4d-4b40-80fc-581f0dfb74f2:extrouter_inside"
+"40f36b87-2c4d-4b40-80fc-581f0dfb74f2:fixed_subnet" -> "40f36b87-2c4d-4b40-80fc-581f0dfb74f2:mysql_server_eth0"
+"40f36b87-2c4d-4b40-80fc-581f0dfb74f2:secgroup_common" -> "40f36b87-2c4d-4b40-80fc-581f0dfb74f2:wordpress_server_eth0"
+"40f36b87-2c4d-4b40-80fc-581f0dfb74f2:secgroup_common" -> "40f36b87-2c4d-4b40-80fc-581f0dfb74f2:mysql_server_eth0"
+}
