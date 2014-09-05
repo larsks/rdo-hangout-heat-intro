@@ -6,6 +6,22 @@ Lars Kellogg-Stedman <lars@redhat.com>
 
 ---
 
+## What are we going to do today?
+
+- Brief overview of Heat
+- Learn about Heat template syntax
+- Look at increasingly complex templates until our heads explode.
+
+Well, hopefully not that last bit.
+
+---
+
+This will all look very similar to [the official examples][1].
+
+[1]: https://github.com/openstack/heat-templates/
+
+---
+
 ## Tools and technology
 
 Everything in this presentation was run on:
@@ -988,13 +1004,141 @@ Looking at samples used by that alarm:
 
 ---
 
-# That's all folks!
+## But something is missing...
+
+- What address would clients use to contact our server?
+- We need a load balancer!
 
 ---
 
-More examples:
+# Example 5
 
-- <https://github.com/openstack/heat-templates/>
+Finding our balance.
+
+---
+
+We will be using the [wp-scaling-lb.yaml][1] template.  This example has
+the same requirements as the previous example.  It produces a Heat
+stack that will create a variable number of Wordpress servers
+depending on CPU load, and will manage a load balancer to provide
+access to this service.
+
+[1]: https://github.com/larsks/rdo-hangout-heat-intro/blob/master/templates/wp-scaling-lb.yaml
+
+
+This template will create:
+
+- Everything we saw in the previous template
+- A Neutron load balancer
+
+---
+
+## New concept: LoadBalancer
+
+A LoadBalancer resource associates a Neutron pool with zero or more
+member servers.
+
+    lb:
+      type: "OS::Neutron::LoadBalancer"
+      properties:
+        protocol_port: 80
+        pool_id: {get_resource: pool}
+
+---
+
+## New concept: Pool
+
+A Pool resource manages a Neutron load-balancing pool.
+
+    pool:
+      type: "OS::Neutron::Pool"
+      properties:
+        protocol: HTTP
+        monitors:
+          - {get_resource: monitor}
+        # in more recent versions of Heat this should be simply "subnet"
+        subnet_id: {get_resource: fixed_subnet}
+        lb_method: ROUND_ROBIN
+        vip:
+          protocol_port: 80
+
+## New concept: HealthMonitor
+
+A HealthMonitor monitors the connectivity of pool members.  Neutron
+will remove a member from a pool if the health check for that member
+fails.
+
+    monitor:
+      type: "OS::Neutron::HealthMonitor"
+      properties:
+        type: TCP
+        delay: 3
+        max_retries: 5
+        timeout: 5
+
+---
+
+## New concept: PoolMember
+
+A PoolMember resources assigns a fixed ip address to a Pool.
+
+    member:
+        type: "OS::Neutron::PoolMember"
+        properties:
+          pool_id: {get_param: pool_id}
+          address: {get_attr: [wordpress_server, first_address]}
+          protocol_port: 80
+
+---
+
+## Load balancing in action
+
+Create the stack:
+
+    $ heat stack-create -f wp-scaling-lb.yaml \
+      -e local.yaml \
+      rdo-stack-5
+
+Wait for the stack to complete.
+
+---
+
+Verify that we have a load balancer:
+
+    $ neutron lb-pool-list
+    +------...+------------...+----------+-------------+----------+----------------+--------+
+    | id   ...| name       ...| provider | lb_method   | protocol | admin_state_up | status |
+    +------...+------------...+----------+-------------+----------+----------------+--------+
+    | 514bd...| rdo-stack-5...| haproxy  | ROUND_ROBIN | HTTP     | True           | ACTIVE |
+    +------...+------------...+----------+-------------+----------+----------------+--------+
+
+---
+
+See the member assigns to the pool:
+
+    $ neutron lb-member-list
+    +------...+----------+---------------+----------------+--------+
+    | id   ...| address  | protocol_port | admin_state_up | status |
+    +------...+----------+---------------+----------------+--------+
+    | d4f44...| 10.0.0.5 |            80 | True           | ACTIVE |
+    +------...+----------+---------------+----------------+--------+
+
+---
+
+Verify that we can contact Wordpress at the load balancer public ip:
+
+    $ eval curl -i $(heat output-show rdo-stack-5 website_url)
+    HTTP/1.1 302 Found
+    Date: Fri, 05 Sep 2014 13:33:58 GMT
+    Server: Apache/2.4.10 (Fedora) PHP/5.5.16
+    X-Powered-By: PHP/5.5.16
+    Location: http://192.168.200.239/wordpress/wp-admin/install.php
+    Content-Length: 0
+    Content-Type: text/html; charset=UTF-8
+
+---
+
+# That's all folks!
 
 ---
 
