@@ -248,7 +248,7 @@ resources:
       max_size: 3
       resource:
         # Here is our nested stack.
-        type: wp-nested-server.yaml
+        type: wp-nested-server-lb.yaml
         properties:
           server_image:
             get_param: server_image
@@ -378,4 +378,13 @@ resources:
         get_param: external_network_id
       port_id:
         get_attr: [pool, vip, port_id]
+
+outputs:
+  website_url:
+    description: floating ip address of the load balancer pool
+    value:
+      str_replace:
+        template: "http://$HOST/wordpress/"
+        params:
+          "$HOST": {get_attr: [lb_floating, floating_ip_address]}
 
